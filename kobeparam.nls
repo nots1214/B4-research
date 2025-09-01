@@ -1,0 +1,39 @@
+to setspeedinv
+  let dens sum [peoplenum] of turtles-here
+  ifelse isride? = false [  
+  ifelse dens < 37
+    [set movespeedinv 6.1 / 1.43][
+    ifelse dens < 74
+      [set movespeedinv 6.1 / 1.016][
+        ifelse dens < 108
+        [set movespeedinv 6.1 / 0.6][
+          set movespeedinv 60.0]
+      ]
+    ]
+  if peoplenum = 2 [set movespeedinv movespeedinv / 0.925]
+  if peoplenum = 3 [set movespeedinv movespeedinv / 0.90]
+  if peoplenum = 4 [set movespeedinv movespeedinv / 0.875]
+  if peoplenum >= 5 [set movespeedinv movespeedinv / 0.85]
+  ]
+  [
+     ifelse dens > 4
+    [ set movespeedinv 22 / 5]
+    [ set movespeedinv 6 / 11]
+  ]
+end
+
+
+to modo [mode]
+  ifelse mode = 0
+  [
+    set numberdivide 1
+    set sizerate 1
+    set wirelessradius 150
+  ]
+  [
+    set numberdivide 1
+    set sizerate 1.5
+    set wirelessradius 150
+  ]
+  set evacstart 0
+end

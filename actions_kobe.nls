@@ -1,0 +1,302 @@
+;;In this file, the rules of actions of agents are written.
+
+to send_information
+  ;;agent send to patches information
+  
+  while [length tlist > 0][
+   let current-patch item 0 tlist
+   set tlist remove-item 0 tlist
+   foreach dislisthv [
+     coord ->
+      let xd first coord
+      let yd last coord
+      let target-x xd + [pxcor] of current-patch
+      let target-y yd + [pycor] of current-patch
+      let level [routenum] of current-patch
+      if (target-x >= 0 and target-x < 1620 and target-y >= 0 and target-y < 1080)[
+       ask patch target-x target-y
+       [
+          if count turtles-here > 0 [
+          if terrain-type = 0
+        [
+            ;;set pcolor yellow
+              let pr last coord
+            ifelse timeunit - recinfotime >= 1 [ 
+              set p_rec pr
+              set infolevel []
+            ]
+            [set p_rec max list p_rec pr]
+            set infolevel lput level infolevel
+            set recinfotime timeunit
+        ]
+          ]
+       ]
+      ]
+    ]
+   ]
+  
+  while [length guideinfolist > 0][
+   let current-patch item 0 guideinfolist
+   set guideinfolist remove-item 0 guideinfolist
+   foreach dislistgv [
+     coord ->
+      let xd first coord
+      let yd item 1 coord
+      let target-x xd + [pxcor] of current-patch
+      let target-y yd + [pycor] of current-patch
+      if (target-x >= 0 and target-x < 1620 and target-y >= 0 and target-y < 1080)[
+       ask patch target-x target-y
+       [
+          if count turtles-here > 0 [
+          if terrain-type = 0
+        [
+            let pr last coord
+            ;;set pcolor pink
+            ifelse timeunit - guideinfotime >= 1 [set p_rec pr]
+            [set p_rec max list p_rec pr]
+            set guideinfotime timeunit
+        ]
+          ]
+       ]
+      ]
+    ]
+   ]
+  
+  if (timeunit mod 300) = 0 and timeunit >= 300 [
+     ask musen-info-patches
+     [
+    
+     if terrain-type = 0
+     [
+        ;;set pcolor yellow
+        ifelse timeunit - museninfotime >= 1 [set p_rec musen-prob]
+        [ set p_rec max list p_rec musen-prob ]   
+        set museninfotime timeunit
+    ]]
+  ]
+end
+
+to set_musen_information
+  ask musen-patches [
+    let xnow pxcor
+    let ynow pycor
+   foreach dislistmusen [
+     coord ->
+      let xd first coord
+      let yd last coord
+      let dist 6.1 * sqrt (xd * xd + yd * yd)
+      let aparam 115
+      if dist > 0
+      [set aparam 115 - 20 * (log dist 10)]
+      let prob max list 0 ( (aparam - 45) / 20 )
+      let target-x xd + xnow
+      let target-y yd + ynow
+      if (target-x >= 0 and target-x < 1620 and target-y >= 0 and target-y < 1080)[
+       ask patch target-x target-y
+       [
+          if terrain-type = 0
+        [
+            set musen-prob max list musen-prob prob
+            set musenarea? true
+        ]
+       ]
+      ]
+    ]
+  ]
+  
+  set musen-info-patches patches with [musenarea? = true]
+end
+
+to ask_information
+   while [length asklist > 0][
+   let current-patch item 0 asklist
+   set asklist remove-item 0 asklist
+   foreach dislisthv [
+     coord ->
+      let xd first coord
+      let yd last coord
+      let dist sqrt (xd * xd + yd * yd)
+      let aparam 65
+      if dist > 0
+      [set aparam 85 - 20 * (log dist 10)]
+      let prob max list 0 ((aparam - 45) / 20)
+      let target-x xd + [pxcor] of current-patch
+      let target-y yd + [pycor] of current-patch
+      if (target-x >= 0 and target-x < 1620 and target-y >= 0 and target-y < 1080)[
+       ask patch target-x target-y
+       [
+          if terrain-type = 0
+        [
+            ;;set pcolor green
+            ifelse timeunit - recasktime >= 1 [set p_ask prob]
+            [set p_ask max list p_ask prob]
+            set recasktime timeunit
+        ]
+       ]
+      ]
+    ]
+   ]
+end
+
+to guide_action
+  ;;ask turtles with [agent-type = 1]
+  ask guides
+  [
+    ifelse stoptime > 0 [ set stoptime stoptime - 1]
+    [
+    set routenum latestnum
+    setspeedinv
+    if waitmove < 0 [
+      set previous_x xcor
+      set previous_y ycor
+      if isevac? = false  [
+        moveforward 50
+        set guidetime guidetime - 1
+      ] ;;check 50*50 area
+      if isevac? = true  [   
+        infomove
+      ]
+      let distancefromprevious max list 1 (distancexy previous_x previous_y)
+      set waitmove waitmove + movespeedinv * distancefromprevious
+      if distancefromprevious < 0.5 [set waitmove 0.001] 
+      ]
+      set waitmove waitmove - 1 
+     ;;return to evacuation center
+
+    if peoplenum > 5  [set isevac? true]
+    if guidetime < 0 [set isevac? true]
+    if [exit] of patch-here = 1 and isevac? = true
+    [
+      set isevac? false
+      set successnum (successnum + peoplenum - 1)
+      set peoplenum 1
+      set guidetime (random 1500)
+      set stoptime 300 + (random 1500)
+      set waitmove 0
+    ]
+    give_guideinfo 5
+    if item latestnum [elevation] of patch-here > 10
+    [
+      ask other turtles-here with [agent-type = 0] [
+        let pnum peoplenum
+        ask myself [ set peoplenum peoplenum + pnum ]
+        ifelse movingtime <= 300 [set finishtime5 finishtime5 + peoplenum][
+        ifelse movingtime <= 600 [set finishtime10 finishtime10 + peoplenum][
+          ifelse movingtime <= 1200 [set finishtime20 finishtime20 + peoplenum][
+            ifelse movingtime <= 1800 [set finishtime30 finishtime30 + peoplenum][
+              ifelse movingtime <= 2700 [set finishtime45 finishtime45 + peoplenum][
+                ifelse movingtime <= 3600 [set finishtime60 finishtime60 + peoplenum][
+                  set finishtimeany finishtimeany + peoplenum]
+              ]
+            ]
+          ]
+        ]
+      ]
+        die ;;ここでエラー
+      ]
+     ]
+  ]
+  ]
+
+end
+
+to receive_information
+  ;;agents that dont have info receive info
+  if timeunit > 1 [
+  ask turtles with [agent-type = 0]
+  [
+    ;;update information
+    let randnum (random 100)
+    if timeunit - [recinfotime]  of patch-here < 1
+    [
+      if randnum < 100 * [p_rec] of patch-here [
+        if hasinfo? = true [
+          if (random 5) = 1
+          [set routenum one-of [infolevel] of patch-here ] 
+        ]
+        if hasinfo? = false [    
+        ;;set hasinfo? true
+        ;;set color red
+        set routenum one-of [infolevel] of patch-here
+      ]
+    ]]
+    if hasmobile? = true and hasinfo? = true [
+      set randnum (random 1800) ;;per 30minutes
+      if randnum = 1 [set routenum latestnum] 
+    ]
+    if timeunit - [museninfotime] of patch-here < 1 or timeunit - [guideinfotime] of patch-here < 1 [
+        set randnum (random 100)
+        if randnum < 100 * [p_rec] of patch-here [
+          set routenum latestnum
+          ;;if (random 100) < 0 [
+          ;;set hasinfo? true
+          ;;  set color red]
+        ]
+      
+      ]
+    
+    ;;update to start evacuation
+    ;;if isevac? = false 
+    if timeunit > 3600 * 20  [ ;;do not use
+      if timeunit - [museninfotime] of patch-here < 1 
+      [
+        set randnum (random 100)
+        ifelse randnum < 40 [
+          let evacstarttime evacstart + (random 600)
+          if init-evac-time > evacstarttime + timeunit
+          [set init-evac-time evacstarttime + timeunit]
+        ][if randnum < 70
+          [let evacstarttime evacstart + 300 + (random 600)
+          if init-evac-time > evacstarttime + timeunit
+          [set init-evac-time evacstarttime + timeunit]
+          ]
+        ]
+      ]
+      if timeunit - [guideinfotime] of patch-here < 1
+      [
+        let evacstarttime evacstart + (random 600)
+        if init-evac-time > evacstarttime + timeunit
+        [set init-evac-time evacstarttime + timeunit]
+      ]
+      if timeunit - [recinfotime] of patch-here < 1 and timeunit - [museninfotime] of patch-here >= 1 and timeunit - [guideinfotime] of patch-here >= 1 [
+        ifelse reccnt = 0
+        [
+          set randnum (random 100)
+          ifelse randnum < 40 [
+            let evacstarttime evacstart + (random 600)
+            if init-evac-time > evacstarttime + timeunit
+            [set init-evac-time evacstarttime + timeunit]
+          ]
+          [ if randnum < 85 [ 
+            let evacstarttime evacstart + 300 + (random 600)
+            if init-evac-time > evacstarttime + timeunit
+            [set init-evac-time evacstarttime + timeunit]
+          ]
+          ]
+          set reccnt 1
+        ]
+        [
+          set randnum (random 100)
+          if randnum < 10
+          [
+            let evacstarttime evacstart + (random 600)
+            if init-evac-time > evacstarttime + timeunit
+            [set init-evac-time evacstarttime + timeunit]
+          ]
+        ]
+      ]
+     ]
+  ]
+  ]
+end
+
+to receive_asking
+  if timeunit > 1 [
+  let randnum (random 100)
+    if timeunit - [recasktime]  of patch-here < 1 
+    [
+    if randnum < 100 * [p_ask] of patch-here [
+     give_info 100
+  ]]
+  ]
+end

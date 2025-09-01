@@ -1,0 +1,294 @@
+extensions[gis]
+
+
+to load_maps
+  
+  set road-dataset gis:load-dataset "file/kobebuild.shp"
+  gis:apply-coverage road-dataset "TYPE" Isroad
+  ask patches [ifelse Isroad = "普通建物" or Isroad = "普通無壁舎" or Isroad = "堅ろう建物" [set terrain-type 1][set terrain-type 0]]
+
+  set river-dataset gis:load-dataset "file/koberiv.shp"
+  gis:apply-coverage river-dataset "TYPE" riv
+  ask patches [if riv = "河川・湖池" or riv = "海" [set terrain-type 2]]
+  
+  set bledge-dataset gis:load-dataset "file/koberoad.shp"
+  gis:apply-coverage bledge-dataset "TYPE" blg
+  ask patches [if blg = "真幅道路" or blg = "徒歩道" or blg = "庭園路等" or blg = "トンネル内の道路" [set blg2 1]]
+  
+  set evac-dataset gis:load-dataset "file/kobeevac4.shp"
+  gis:apply-coverage evac-dataset "P20_005" ev ;;is contain
+  let labelnum 0
+  ask patches [if ev = -1 
+    [
+      set exit 1
+      set pcolor green
+      set capa 100 + (random 901)
+      set terrain-type 0  ;;evacuation center is treated as field.
+      set arealabel labelnum
+      ask neighbors [set ev 0]
+      set labelnum labelnum + 1
+    ]
+  ]
+  
+  
+  set musen-dataset gis:load-dataset "file/kobewireless2.shp"
+  gis:apply-coverage musen-dataset "ID" ismusen
+  ask patches [ifelse ismusen > 0
+    [set ismusen 1
+      ask neighbors [set ismusen 0]
+    ][set ismusen 0]
+  ]
+  set musennum 0
+  ask patches with [ismusen = 1][set musennum musennum + 1]
+  
+  print musennum
+  
+  
+  print labelnum
+  set evac-patches patches with [exit = 1]
+  set deadevac-patches patches with [exit = 2]
+  set musen-patches patches with [ismusen = 1]
+  
+
+  
+  ask patches [
+    ;;ifelse alti > 0 [
+    ;;set pcolor scale-color green alti 500 0
+    ;;]
+    ;;[set pcolor white]
+    set pcolor green
+  ]
+  ask patches with [terrain-type = 1][
+    set pcolor brown
+    set elevation [999999999]
+    set elevation4 [999999999]
+  ]
+  ask patches with [terrain-type = 0][
+    ;;set pcolor white
+    set elevation [9999999]
+    set elevation4 [9999999]
+  ]
+  
+  ask patches with [terrain-type = 2]
+  [
+    ifelse blg2 = 1
+    [
+      set pcolor gray
+      set elevation [9999999]
+      set elevation4 [9999999]
+      set terrain-type 0
+    ]
+    [
+    set pcolor sky
+      set elevation [999999999]
+      set elevation4 [999999999]
+  ]]
+  
+  set fields patches with [terrain-type = 0]
+  ask fields [set infolevel []]
+  
+end
+
+to create_people
+  set popu-dataset gis:load-dataset "file/kobepopu.shp"
+  gis:apply-coverage popu-dataset "POP2010" popu
+  ask patches
+  [
+    ifelse popu > 0
+     [set popu floor popu 
+    ][set popu 0]
+  ]
+  
+  ;;505571
+  let i 0
+  while [i < 20][
+    let j 0
+    while [j < 20][
+      let numberpeople floor ( [popu] of patch (i * 81 + 40) (j * 54 + 27) * 0.8 / 11.5 / numberdivide / 1.85) ;;1*0.6+2*0.15+3*0.1+4*0.1+5*0.05
+      ask n-of numberpeople patches with [terrain-type = 0 and pxcor >= i * 81 and pxcor < (i + 1) * 81 and pycor >= j * 54 and pycor < (j + 1) * 54 and (item 0 elevation) < 50000][
+        setpeople
+      ]
+     set j j + 1  
+    ]
+    set i i + 1
+  ]
+
+  ask evac-patches [
+    sprout 2 [
+       set shape "square"
+       set size 9
+       set isevac? false ;;first, randomwalk
+       set agent-type 1
+       set hasinfo? true
+       set color pink
+       set peoplenum 1
+       set guidetime (random 1500)
+       set stoptime 0
+       move8
+   ] 
+  ]
+  set guides turtles with [agent-type = 1]
+  set successnum 0
+  ;;set initialnum count turtles with [peoplenum = 5] * 5 + count turtles with [peoplenum = 4] * 4 + count turtles with [peoplenum = 3] * 3 + count turtles with [peoplenum = 2] * 2 + count turtles with [peoplenum = 1] * 1
+  set initialnum 0
+  ask turtles with [agent-type = 0]
+  [set initialnum initialnum + peoplenum]
+  set evactime (word  "06:00:00")
+end
+
+to setpeople
+ sprout 1 [ 
+         set shape "square"
+         set size 9
+         set isevac? false
+         set agent-type 0
+         set moved? false
+          ifelse (random 100) < 60 [set hasmobile? true][set hasmobile? false]
+         ifelse (random 10) < 7
+         [ set hasinfo? true
+           set color red]
+         [ set hasinfo? false
+           set color blue
+           ;;let movewayrand (random 100)
+           ;;ifelse movewayrand < 80 [
+           ;;set moveway 1
+           ;;move8
+           ;;][
+           ;;ifelse movewayrand < 90 [set moveway 0][set moveway 2]]
+           ;;set moveway 1
+           set moveway (random 2)
+           move8
+         ]
+      
+        let ran (random 3)
+        set talkfreq ran
+        set ran (random 100)
+          ifelse ran < 32 [
+            set init-evac-time 0  set init-evac-time init-evac-time + (random 3600)]
+          [ifelse ran < 60
+            [
+            set init-evac-time 3600
+            set init-evac-time init-evac-time + (random 3600) + (random 3600) + (random 3600)
+            ]
+            [
+            set init-evac-time 3600 * 4 
+            ;;set init-evac-time init-evac-time +  (random 7200) + (random 7200) + (random 7200) + (random 7200) + (random 7200) + (random 7200) + (random 7200)]]
+            set init-evac-time init-evac-time +  (random 12600) + (random 12600) + (random 12600) + (random 12600) ]]  
+        
+          set init-evac-time init-evac-time + (random 600)
+        set ran (random 10)
+        ifelse ran < 2
+          [
+            set isride? true
+            set color violet
+          ][set isride? false]
+        ;;setting peoplenum
+        set ran (random 100)
+    ifelse ran < 60 [set peoplenum 1][
+      ifelse ran < 75 [set peoplenum 2][
+        ifelse ran < 85 [set peoplenum 3][
+          ifelse ran < 95 [set peoplenum 4][set peoplenum 5]
+        ]
+      ]
+    ]
+       ] 
+  
+end
+
+;;to evacinfo
+;;  ask patches with [(item latestnum elevation) < 25]
+;;  [
+;;    set recinfo? true
+;;    set pcolor yellow
+;;  ]
+;;end
+
+to distancelist [maxradius]
+  let r maxradius
+  let s (-1 * maxradius)
+  let xd s
+  let yd s
+  set dislist []
+  while [xd <= r][
+    set yd s
+    while [yd <= r][
+     if (xd * xd + yd * yd <= r * r)
+      [
+        set dislist lput (list xd yd) dislist
+      ]
+      set yd yd + 1
+    ]
+    set xd xd + 1
+  ]
+
+  ;;human voice
+  set r 16
+  set s (-1 * s)
+  set xd s
+  set yd s
+  set dislisthv []
+  while [xd <= r][
+    set yd s
+    while [yd <= r][
+     if (xd * xd + yd * yd <= r * r)
+      [
+        let dist 6.1 * sqrt (xd * xd + yd * yd)
+        if dist > 0
+        [
+          let aparam 85 - 20 * (log dist 10)
+          let prob ((aparam - 45) / 20)
+          if prob > 0
+          [set dislisthv lput (list xd yd prob) dislisthv]
+        ]
+      ]
+      set yd yd + 1
+    ]
+    set xd xd + 1
+  ]
+  
+  ;;guide voice
+  set r 40
+  set s (-1 * r)
+  set xd s
+  set yd s
+  set dislistgv []
+  while [xd <= r][
+    set yd s
+    while [yd <= r][
+     if (xd * xd + yd * yd <= r * r)
+      [
+        let dist 6.1 * sqrt (xd * xd + yd * yd)
+        if dist > 0
+        [
+          let aparam 105 - 20 * (log dist 10)
+          let prob ((aparam - 45) / 20)
+          if prob > 0
+          [set dislistgv lput (list xd yd prob) dislistgv]
+        ]
+      ]
+      set yd yd + 1
+    ]
+    set xd xd + 1
+  ]
+  
+  ;;wireless
+  set r wirelessradius
+  set s (-1 * r)
+  set xd s
+  set yd s
+  set dislistmusen []
+  while [xd <= r][
+    set yd s
+    while [yd <= r][
+     if (xd * xd + yd * yd <= r * r)
+      [
+        set dislistmusen lput (list xd yd) dislistmusen
+      ]
+      set yd yd + 1
+    ]
+    set xd xd + 1
+  ]
+end
+
+
+

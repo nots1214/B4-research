@@ -1,0 +1,250 @@
+to save_to_file
+  save-patches
+  ;;save-turtles
+  ;;save-globals ;;adjacent
+  ;;save-tsunami
+end
+
+to load_from_file
+  ca
+  reset-ticks
+  resize-world 0 1620 0 1080 ;;10km/1620=6.2m a patch is (6.2m)^2 3:2
+  ;;resize-world 0 (1620 * 1.5) 0 (1080 * 1.5) ;;10km/2430=4.1m
+  reset-timer
+  ;;load-patches
+  ;;load-turtles
+  ;;load-globals
+  distancelist 10
+  set timeunit 0
+  ;;set evac-patches patches with [exit = 1]
+  ;;set fields patches with [terrain-type = 0]
+  ;;set guides turtles with [agent-type = 1]
+  load-tsunami
+  set-patch-size 0.02
+  show timer
+  print "OK"
+end
+
+to save-patches
+  file-close
+  if file-exists? "file/miyagipatches-data.txt" [file-delete "file/miyagipatches-data.txt"]
+  file-open "file/miyagipatches-data.txt"
+  ask patches [
+   file-print pxcor
+   file-print pycor
+   file-print pcolor
+   file-print altielev
+   file-print alti
+   file-print terrain-type
+  ]
+    file-close
+end
+
+to load-patches
+  file-close
+  file-open "file/miyagipatches-data.txt"
+  while [not file-at-end?][
+    ;;let data file-read-line
+    ;;let line (split  data " ")
+    let x read-from-string file-read-line
+    let y read-from-string file-read-line
+    let col read-from-string file-read-line
+    let altele read-from-string file-read-line
+    let alt read-from-string file-read-line
+    let typ read-from-string file-read-line
+    ask patch x y [
+      set pcolor col
+      set altielev altele
+      set alti alt
+      set terrain-type typ
+      
+    ]
+  ]
+  file-close
+end
+
+
+to save-turtles
+  file-close
+  if file-exists? "file/turtles-data.txt" [file-delete "file/turtles-data.txt"]
+  file-open "file/turtles-data.txt"
+  ask turtles [
+   file-print xcor
+   file-print ycor
+   file-print color
+   file-print size
+   file-print shape
+   file-print moved?
+   file-print hasinfo?
+   file-print peoplenum
+   file-print moveway
+   file-print nextmove
+   file-print agent-type
+   file-print isevac?
+   file-print guidetime
+   file-print waitmove
+    ]
+    file-close
+end
+
+to load-turtles
+  file-close
+  file-open "file/turtles-data.txt"
+  while [not file-at-end?][
+    let x read-from-string file-read-line
+    let y read-from-string file-read-line
+    let col read-from-string file-read-line
+    let siz read-from-string file-read-line
+    let shap file-read-line
+    let movd read-from-string file-read-line
+    let hasin read-from-string file-read-line
+    let num read-from-string file-read-line
+    let way read-from-string file-read-line
+    let nex read-from-string file-read-line
+    let typ read-from-string file-read-line
+    let isev read-from-string file-read-line
+    let guti read-from-string file-read-line
+    let waitme read-from-string file-read-line
+    
+   create-turtles 1 [
+     setxy x y
+     set color col
+      set size siz
+      set shape shap
+      set moved? movd
+      set hasinfo? hasin
+      set peoplenum num
+      set moveway way
+      set nextmove nex
+      set agent-type typ
+      set isevac? isev
+      set guidetime guti
+      set waitmove waitme
+    ] 
+  ]
+  file-close
+end
+
+to save-globals
+  if file-exists? "file/globals-data.txt" [file-delete "file/globals-data.txt"]
+  file-open "file/globals-data.txt"
+  foreach adjacentmatrix [
+  ;; file-print word (reduce [ 
+  ]
+  
+end
+
+to save-tsunami
+  file-close
+  if file-exists? "file/tsunami-data.txt" [file-delete "file/tsunami-data.txt"]
+  file-open "file/tsunami-data.txt"
+  ask patches [
+   file-print pxcor
+   file-print pycor
+   file-print nami
+   file-print tsunamitime
+   file-print tsunamicome?
+  ]
+    file-close
+end
+
+to load-tsunami
+  file-close
+  file-open "file/tsunami-data.txt"
+  while [not file-at-end?][
+    ;;let data file-read-line
+    ;;let line (split  data " ")
+    let x read-from-string file-read-line
+    let y read-from-string file-read-line
+    let lv read-from-string file-read-line
+    let t read-from-string file-read-line
+    let come file-read-line
+    ask patch x y [
+      set nami lv      
+      set tsunamitime t
+      set tsunamicome? come
+    ]
+  ]
+  file-close
+end
+
+
+
+
+to statistics [hour minute]
+  file-close
+  file-open "miyagiresult/miyagistatistics1-ta.txt"
+  let suc 100 * successnum / initialnum
+  let text (word (word (word (word hour " ") minute) " ") suc)
+  file-print text
+  file-close
+end
+
+
+to statistics2 [hour minute]
+  file-close
+  file-open "miyagiresult/miyagistatistics1-tb.txt"
+  let wariai 100 * startagentnum / initialnum
+  let text (word (word (word (word (word (word hour " ") minute) " ") startagentnum) " ") wariai)
+  file-print text
+  file-close
+end
+
+
+to statistics3
+  file-close
+  file-open "miyagiresult/miyagistatistics1-tc.txt"
+  let wariai 100 * successnum / initialnum
+  let f5 100 * finishtime5 / initialnum
+  let f10 100 * finishtime10 / initialnum
+  let f20 100 * finishtime20 / initialnum
+  let f30 100 * finishtime30 / initialnum
+  let f45 100 * finishtime45 / initialnum
+  let f60 100 * finishtime60 / initialnum
+  let fa 100 * finishtimeany / initialnum
+  let text (word (word (word (word (word (word( word( word (word (word (word (word (word (word wariai " ") f5) " ") f10) " ") f20) " ") f30) " ") f45) " ") f60) " ") fa)
+  file-print text
+  file-close
+end
+
+to statisticsl [hour minute cnt]
+  file-close
+  let name (word (word "miyagiresult/miyagistatistics-a6-" cnt) ".txt")
+  ;;file-open "miyagiresult/miyagistatistics1-ta.txt"
+  file-open name
+  let suc 100 * successnum / initialnum
+  let text (word (word (word (word hour " ") minute) " ") suc)
+  file-print text
+  file-close
+end
+
+
+to statisticsl2 [hour minute cnt]
+  file-close
+  let name (word (word "miyagiresult/miyagistatistics-b6-" cnt) ".txt")
+  ;;file-open "miyagiresult/miyagistatistics1-tb.txt"
+  file-open name
+  let wariai 100 * startagentnum / initialnum
+  let text (word (word (word (word (word (word hour " ") minute) " ") startagentnum) " ") wariai)
+  file-print text
+  file-close
+end
+
+to statistics3l [cnt]
+  file-close
+  let name (word (word "miyagiresult/miyagistatistics-c6-" cnt) ".txt")
+  ;;file-open "miyagiresult/miyagistatistics-c1-.txt"
+  file-open name
+  let wariai 100 * successnum / initialnum
+  let f5 100 * finishtime5 / initialnum
+  let f10 100 * finishtime10 / initialnum
+  let f20 100 * finishtime20 / initialnum
+  let f30 100 * finishtime30 / initialnum
+  let f45 100 * finishtime45 / initialnum
+  let f60 100 * finishtime60 / initialnum
+  let fa 100 * finishtimeany / initialnum
+  let text (word (word (word (word (word (word( word( word (word (word (word (word (word (word wariai " ") f5) " ") f10) " ") f20) " ") f30) " ") f45) " ") f60) " ") fa)
+  file-print text
+  file-close
+end
+

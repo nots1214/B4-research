@@ -1,0 +1,357 @@
+extensions[gis]
+
+
+to load_maps
+
+  load-tsunami
+  
+  ifelse loaded? = false [
+    set road-dataset gis:load-dataset "file/testd.shp"
+    gis:apply-coverage road-dataset "TYPE" Isroad
+    ask patches [ifelse Isroad = "普通建物" or Isroad = "普通無壁舎" or Isroad = "堅ろう建物" [set terrain-type 1][set terrain-type 0]]
+
+    set river-dataset gis:load-dataset "file/river.shp"
+    gis:apply-coverage river-dataset "TYPE" riv
+    ask patches [if riv = "河川・湖池" or riv = "海" [set terrain-type 2]]
+  
+    set bledge-dataset gis:load-dataset "file/blg.shp"
+    gis:apply-coverage bledge-dataset "TYPE" blg
+    ask patches [if blg = "真幅道路" or blg = "徒歩道" or blg = "庭園路等" or blg = "トンネル内の道路" [set blg2 1]]
+  
+    set elev-dataset gis:load-dataset "file/altidata.shp"
+    gis:apply-coverage elev-dataset "DN" alti
+    gis:set-world-envelope gis:envelope-of elev-dataset
+    ;;ask patches [ifelse alti > 1 [set alti2 1][set alti2 0]]
+  ]
+  [
+    load-patches
+  ]
+  
+  
+  set evac-dataset gis:load-dataset "file/miyagievacu.shp"
+  gis:apply-coverage evac-dataset "P20_004" Isroad ;;is evacuation center
+  gis:apply-coverage evac-dataset "P20_005" riv ;;is contain
+  let labelnum 0
+  ask patches [if Isroad = "避難所" and riv > 0 
+    [
+      set exit 1
+      set pcolor green
+      set capa floor(riv / 1)
+      set terrain-type 0  ;;evacuation center is treated as field.
+      set arealabel labelnum
+      ask neighbors [set Isroad 0]
+      set labelnum labelnum + 1
+    ]
+  ]
+  
+  
+  set musen-dataset gis:load-dataset "file/miyagimusen.shp"
+  gis:apply-coverage musen-dataset "ID" ismusen
+  ask patches [ifelse ismusen > 0
+    [set ismusen 1
+      ask neighbors [set ismusen 0]
+    ][set ismusen 0]
+  ]
+  set musennum 0
+  ask patches with [ismusen = 1][set musennum musennum + 1]
+  
+  print musennum
+  
+  
+  print labelnum
+  set evac-patches patches with [exit = 1]
+  set deadevac-patches patches with [exit = 2]
+  set musen-patches patches with [ismusen = 1]
+  
+
+  if loaded? = false [
+    ask patches [
+      ifelse alti > 0 [
+      set pcolor scale-color green alti 500 0
+      ]
+      [set pcolor white]
+    ]
+  ]
+  ;;ask patches with [terrain-type = 1][
+  ask patches [
+    set elevation [999999999]
+    set elevation4 [999999999]
+    if loaded? = false [
+      set altielev 99999999]
+  ]
+  if loaded? = false [
+  ask patches with [terrain-type = 1]
+  [set pcolor brown]
+  ask patches with [terrain-type = 2]
+  [
+    ifelse blg2 = 1
+    [
+      set pcolor gray
+      set terrain-type 0
+    ]
+    [
+    set pcolor sky
+  ]]
+  ]
+  
+  ask patches with [terrain-type != 2 and (nami != 1 and nami != 2 and nami != 3 and nami != 4 and nami != 5 and nami != 6)]
+  [set tsunamitime 10000]
+  
+  set fields patches with [terrain-type = 0]
+  ask fields [set infolevel []]
+  ask patches [
+    ifelse tsunamitime < 9000 [set tsunamicome? true][set tsunamicome? false]]
+  set tsunami-patches patches with [tsunamicome? = true]
+
+  
+end
+
+to create_people
+  set popu-dataset gis:load-dataset "file/miyagipopu.shp"
+  gis:apply-coverage popu-dataset "POP2010B" popu
+  ask patches
+  [
+    ifelse popu > 0
+     [set popu floor popu 
+    ][set popu 0]
+  ]
+  
+  gis:apply-coverage popu-dataset "POP2010A" popu2
+  gis:apply-coverage popu-dataset "POP2010C" popu3
+  ask patches
+  [
+    ifelse popu2 > 0
+     [set popu2 floor popu2  
+    ][set popu2 0]
+    ifelse popu3 > 0
+     [set popu2 popu2 + floor popu3  
+    ][set popu2 popu2]
+  ]
+  
+  let i 0
+  while [i < 20][
+    let j 0
+    while [j < 20][
+      let numberpeople floor ( [popu] of patch (i * 81 + 40) (j * 54 + 27) / numberdivide / 1.85 * 1.5)
+      ;;ask n-of people patches with [pcolor = white][
+      ask n-of numberpeople patches with [terrain-type = 0 and pxcor >= i * 81 and pxcor < (i + 1) * 81 and pycor >= j * 54 and pycor < (j + 1) * 54 and (item 0 elevation) < 50000][
+        sprout 1 [ 
+         ;;set color red
+         set shape "square"
+         set size 9
+         set isevac? false
+         set agent-type 0
+         set moved? false
+         set fast true
+          ifelse (random 100) < 60 [set hasmobile? true][set hasmobile? false]
+         ifelse (random 10) < 6
+         [ set hasinfo? true
+           set color red]
+         [ set hasinfo? false
+           set color blue
+           ;;let movewayrand (random 100)
+           ;;ifelse movewayrand < 80 [
+           ;;set moveway 1
+           ;;move8
+           ;;][
+           ;;ifelse movewayrand < 90 [set moveway 0][set moveway 2]]
+           set moveway 3
+         ]
+      
+        let ran (random 3)
+        set talkfreq ran
+        set ran (random 1000)
+          ifelse ran < 205 [set init-evac 1 set init-evac-time 0]
+          [ifelse ran < 436 [set init-evac 2 set init-evac-time 300]
+            [ifelse ran < 470 [set init-evac 3 set init-evac-time 300]
+              [ifelse ran < 515 [set init-evac 4 set init-evac-time 600]
+                [set init-evac 5 set init-evac-time 3600]]]]
+          set init-evac-time init-evac-time + (random 300)
+        set ran (random 10)
+        ifelse ran < 2
+          [
+            set isride? true
+            set color green
+          ][set isride? false]
+        ;;setting peoplenum
+        set ran (random 100)
+        ifelse ran < 60 [set peoplenum 1]
+        [ifelse ran < 75 [set peoplenum 2]
+          [ifelse ran < 85 [set peoplenum 3]
+            [ifelse ran < 95 [set peoplenum 4]
+              [set peoplenum 5]
+            ]
+          ]
+        ]
+       ]
+     ]
+      set numberpeople floor ( [popu2] of patch (i * 81 + 40) (j * 54 + 27) / numberdivide / 1.85 * 1.5)
+      ;;ask n-of people patches with [pcolor = white][
+      ask n-of numberpeople patches with [terrain-type = 0 and pxcor >= i * 81 and pxcor < (i + 1) * 81 and pycor >= j * 54 and pycor < (j + 1) * 54 and (item 0 elevation) < 50000][
+        sprout 1 [ 
+         ;;set color red
+         set shape "square"
+         set size 9
+         set isevac? false
+         set agent-type 0
+         set moved? false
+         set fast false
+          ifelse (random 100) < 60 [set hasmobile? true][set hasmobile? false]
+         ifelse (random 10) < 6
+         [ set hasinfo? true
+           set color red]
+         [ set hasinfo? false
+           set color blue
+           ;;let movewayrand (random 100)
+           ;;ifelse movewayrand < 80 [
+           ;;set moveway 1
+           ;;move8
+           ;;][
+           ;;ifelse movewayrand < 90 [set moveway 0][set moveway 2]]
+           set moveway 3
+         ]
+      
+        let ran (random 3)
+        set talkfreq ran
+        set ran (random 1000)
+          ifelse ran < 205 [set init-evac 1 set init-evac-time 0]
+          [ifelse ran < 436 [set init-evac 2 set init-evac-time 300]
+            [ifelse ran < 470 [set init-evac 3 set init-evac-time 300]
+              [ifelse ran < 515 [set init-evac 4 set init-evac-time 600]
+                [set init-evac 5 set init-evac-time 3600]]]]
+          set init-evac-time init-evac-time + (random 600)
+        set ran (random 10)
+        ifelse ran < 2
+          [
+            set isride? true
+            set color green
+          ][set isride? false]
+        ;;setting peoplenum
+        set ran (random 100)
+        ifelse ran < 60 [set peoplenum 1]
+        [ifelse ran < 75 [set peoplenum 2]
+          [ifelse ran < 85 [set peoplenum 3]
+            [ifelse ran < 95 [set peoplenum 4]
+              [set peoplenum 5]
+            ]
+          ]
+        ]
+       ]
+     ]
+     
+     set j j + 1  
+    ]
+    set i i + 1
+  ]
+
+  ask turtles with [agent-type = 0 and init-evac = 5]
+  [
+    if [tsunamicome?] of patch-here = false [
+       set init-evac-time 1500 + (random 900) 
+    ]
+  ]
+
+  ask evac-patches [
+    sprout 2 [
+       set shape "square"
+       set size 9
+       set isevac? false ;;first, randomwalk
+       set agent-type 1
+       set hasinfo? true
+       set color pink
+       set peoplenum 1
+       set guidetime (random 1500)
+       move8
+   ] 
+  ]
+  set guides turtles with [agent-type = 1]
+  set successnum 0
+  ;;set initialnum count turtles with [peoplenum = 5] * 5 + count turtles with [peoplenum = 4] * 4 + count turtles with [peoplenum = 3] * 3 + count turtles with [peoplenum = 2] * 2 + count turtles with [peoplenum = 1] * 1
+  set initialnum 0
+  ask turtles with [agent-type = 0]
+  [set initialnum initialnum + peoplenum]
+end
+
+
+
+;;to evacinfo
+;;  ask patches with [(item latestnum elevation) < 25]
+;;  [
+;;    set keepinfo 5 ;;要修正
+;;    set pcolor yellow
+;;  ]
+;;end
+
+to distancelist [maxradius]
+  let r maxradius
+  let s (-1 * maxradius)
+  let xd s
+  let yd s
+  set dislist []
+  while [xd <= r][
+    set yd s
+    while [yd <= r][
+     if (xd * xd + yd * yd <= r * r)
+      [
+        set dislist lput (list xd yd) dislist
+      ]
+      set yd yd + 1
+    ]
+    set xd xd + 1
+  ]
+
+  ;;human voice
+  set r 16
+  set s (-1 * 16)
+  set xd s
+  set yd s
+  set dislisthv []
+  while [xd <= r][
+    set yd s
+    while [yd <= r][
+     if (xd * xd + yd * yd <= 256)
+      [
+        set dislisthv lput (list xd yd) dislisthv
+      ]
+      set yd yd + 1
+    ]
+    set xd xd + 1
+  ]
+  ;;guide voice
+  set r 50
+  set s (-1 * r)
+  set xd s
+  set yd s
+  set dislistgv []
+  while [xd <= r][
+    set yd s
+    while [yd <= r][
+     if (xd * xd + yd * yd <= r * r)
+      [
+        set dislistgv lput (list xd yd) dislistgv
+      ]
+      set yd yd + 1
+    ]
+    set xd xd + 1
+  ]
+  
+  set r wirelessradius
+  set s (-1 * r)
+  set xd s
+  set yd s
+  set dislistmusen []
+  while [xd <= r][
+    set yd s
+    while [yd <= r][
+     if (xd * xd + yd * yd <= r * r)
+      [
+        set dislistmusen lput (list xd yd) dislistmusen
+      ]
+      set yd yd + 1
+    ]
+    set xd xd + 1
+  ]
+end
+
+
+

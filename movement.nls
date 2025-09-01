@@ -1,0 +1,198 @@
+;;In this file, the functions for the movement of agent are written.
+
+to infomove
+    set moved? false
+    ;;let target min-one-of neighbors [ elevation + ( count turtles-here) ]
+    let routeindex routenum
+    let target min-one-of neighbors [(item routeindex elevation) * 30 + count turtles]
+    ;; first, agents move by dijkstra
+    ;;if [elevation + (count turtles-here)] of target < [elevation + count turtles-here] of patch-here
+    if item routeindex [elevation] of target <= item routeindex [elevation] of patch-here and (item routeindex [elevation] of target) * 30 + [count turtles-here] of target < (item routeindex [elevation] of patch-here) * 30 + [count turtles-here] of patch-here
+    [
+      ;;face target
+      move-to target
+      set moved? true
+      ;;ask target [set path path + 1]
+    ]
+
+    ;;next, agents move by neighbors4
+    if moved? = false
+    [
+      let target4 min-one-of neighbors [(item 0 elevation4) + (count turtles-here * 9999999)]
+
+      ;;if [elevation4 + (count turtles-here)] of target4 < [elevation4 + (count turtles-here)] of patch-here
+      if item 0 [elevation4] of target4 < item 0 [elevation4] of patch-here
+      [
+        ;;face target4
+        move-to target4
+        ;;set moved? true
+        ;;ask target4 [set path path + 1]
+    ]
+    ]
+
+end
+
+to give_info [r]
+    if (random 100) < r
+    [
+      set tlist lput self tlist
+    ]  
+end
+
+to give_guideinfo [r]
+    if (random 300) < r
+    [
+      set guideinfolist lput self guideinfolist
+    ]  
+end
+
+
+to ask_info
+    let ran (random 600)
+    ifelse talkfreq = 0
+    [
+      if ran < 10 [set asklist lput self asklist]
+    ]
+    [
+      if talkfreq = 1
+    [
+      if ran < 5 [set asklist lput self asklist]
+    ]]
+end
+
+
+to randommove
+    ;;agent move perfectly randomly
+    set moved? false
+    if any? neighbors with [terrain-type = 0] [
+    let randtarget one-of neighbors with [terrain-type = 0]
+      ;;face randtarget
+      move-to randtarget
+      ;;set moved? true
+      ;;ask randtarget [set path path + 1]
+    ]
+
+end
+
+to randommove2
+  set moved? false
+      let x first nextmove
+      let y last nextmove
+      let xc xcor
+      let yc ycor
+      let target patch (xc + x) (yc + y)
+      ifelse target = nobody[move8 set nextmovetime 60 + (random 240)][
+      ifelse [terrain-type] of target > 0
+      [move8 set nextmovetime 60 + (random 240)]
+      [
+      ifelse item latestnum [elevation] of target >= item latestnum [elevation] of patch-here
+      [move8 set nextmovetime 60 + (random 240)][
+        ifelse nextmovetime < 0 [move8 set nextmovetime 60 + (random 240)][move-to target]
+      ]
+      ]
+      ]
+  set nextmovetime nextmovetime - 1
+end
+
+to moveforward [elev-constraint]
+  ;;move forward until touching object
+      set moved? false
+      let x first nextmove
+      let y last nextmove
+      let xc xcor
+      let yc ycor
+      let target patch (xc + x) (yc + y)
+      ifelse target = nobody[move8][
+      ifelse [terrain-type] of target > 0
+      [move8]
+      [
+      ifelse item latestnum [elevation] of target > elev-constraint and item latestnum [elevation] of target >= item latestnum [elevation] of patch-here
+      [move8][
+        ;;face target
+        move-to target
+        ;;set moved? true
+      ]
+      ]
+      ]
+end
+
+to movetogether  ;;agent move to other agent patch
+  set moved? false
+  let xc xcor
+  let yc ycor
+  foreach dislist [
+   coord ->
+   let xd first coord
+   let yd last coord
+   let xd2 0
+   let yd2 0
+   let target patch (xc + xd) (yc + yd)
+    if target != nobody[
+      if [terrain-type] of target = 0[
+        ifelse [(count turtles-here with [isevac? = true and hasinfo? = true])] of target > 0 [
+        ifelse xd > 0 [set xd2 1][ifelse xd < 0 [set xd2 -1][]]
+        ifelse yd > 0 [set yd2 1][ifelse yd < 0 [set yd2 -1][]]
+        let target2 patch (xc + xd2) (yc + yd2)
+        ;;face target2
+        if [terrain-type] of target2 = 0[
+          move-to target2
+          set moved? true]
+      ;;set moved? true
+       ] []
+      ]
+    ]
+  ]
+end
+
+to movetoguide  ;;agent move to other agent patch
+  set moved? false
+  let xc xcor
+  let yc ycor
+  foreach dislist [
+   coord ->
+   let xd first coord
+   let yd last coord
+   let xd2 0
+   let yd2 0
+   let target patch (xc + xd) (yc + yd)
+   ifelse target = nobody [;;nextmove is wall?
+    ][
+      ifelse [(count turtles-here with [agent-type = 1])] of target > 0 [
+      ifelse xd > 0 [set xd2 1][ifelse xd < 0 [set xd2 -1][]]
+      ifelse yd > 0 [set yd2 1][ifelse yd < 0 [set yd2 -1][]]
+      let target2 patch (xc + xd2) (yc + yd2)
+        if [terrain-type] of target2 = 0 [
+        ;;face target2
+        move-to target2
+        set moved? true
+        ;;set moved? true
+      ]]
+    []
+  ]
+  ]
+end
+
+to movetotaller
+  set moved? false
+    ;;let target min-one-of neighbors [ elevation + ( count turtles-here) ]
+    let target min-one-of neighbors [altielev]
+    ;; first, agents move by dijkstra
+    ;;if [elevation + (count turtles-here)] of target < [elevation + count turtles-here] of patch-here
+    if [altielev] of target < [altielev] of patch-here
+    [
+      ;;face target
+      move-to target
+      set moved? true
+      ;;ask target [set path path + 1]
+    ]
+
+end
+
+to move8
+  let movelist [[-1 -1] [-1 0] [-1 1] [0 -1] [0 1] [1 -1] [1 0] [1 1]]
+  let ran (random 8)
+  set nextmove item ran movelist
+  
+end
+
+

@@ -1,0 +1,134 @@
+;;In this file, the algorithms for search shortest route are written.
+
+to dijkstra
+   ;;dijkstra
+  set latestnum 0
+  set alist []
+  set adjacentmatrix n-values 130 [ n-values 130 [0] ]
+  ask fields [
+    set isvisit? 0
+  ]
+  ask evac-patches [
+    set elevation [0]
+    set isvisit? 1
+    set alist lput self alist
+    ]
+  while [length alist > 0][
+   let current-patche item 0 alist
+   set alist remove-item 0 alist
+   ask current-patche[
+      let elevnum item 0 elevation
+      ask neighbors with [terrain-type = 0 and isvisit? = 0][
+        set elevation replace-item 0 elevation (1 + elevnum)
+        set alist lput self alist
+        set isvisit? 1
+        set arealabel [arealabel] of myself
+      ]
+      ask neighbors with [terrain-type = 0 and isvisit? = 1][;;check adjacency
+        if arealabel != [arealabel] of myself
+        [
+          set adjacentmatrix replace-item arealabel adjacentmatrix replace-item [arealabel] of myself (item arealabel adjacentmatrix) 1
+        ]
+      ]
+    ]
+  ]
+end
+
+to dijkstra4
+  ;;dijkstra4
+  set alist []
+  ask fields [
+    set isvisit? 0
+  ]
+  ask evac-patches [
+    set elevation4 [0]
+    set isvisit? 1
+    ;;alistに追加
+    set alist lput self alist
+    ]
+  while [length alist > 0][
+   let current-patche4 item 0 alist
+   set alist remove-item 0 alist
+   ask current-patche4 [
+      let elevnum item 0 elevation4
+      ask neighbors4 with [terrain-type = 0 and isvisit? = 0][
+        set elevation4 replace-item 0 elevation4 (1 + elevnum)
+        set alist lput self alist
+        set isvisit? 1
+      ]
+    ]
+  ]
+end
+
+to disevac [evacnum]
+  ask patches with [isvisit? = 0][set isvisit? 1]
+  ask patches with [arealabel = evacnum and exit = 1] ;;evac-patchesで見る
+  [
+     set exit 2
+     set pcolor white ;;要修正
+     print word pxcor pycor
+  ]
+  let dis evacnum
+  let adjlist01 item dis adjacentmatrix
+  let adjlist filter [i -> item i adjlist01 = 1] range 130
+  set latestnum latestnum + 1
+  
+  ;;the disapper evacuation element of adjacentmatrix should be 0.
+  set adjacentmatrix replace-item dis adjacentmatrix n-values length (item dis adjacentmatrix) [0]
+  set adjacentmatrix map [
+    curr-row ->
+    replace-item dis curr-row 0
+  ] adjacentmatrix
+  
+  set alist []
+  ask fields with [member? arealabel adjlist or arealabel = dis] ;;neccesary patch only
+  [set isvisit? 0 
+   set elevation lput 9999999 elevation
+  ]
+  
+  ask patches with [isvisit? = 1 and terrain-type = 0]
+  [
+    let elevnum item (latestnum - 1) elevation
+    set elevation lput elevnum elevation
+  ]
+  ask patches with [terrain-type != 0]
+  [
+    let elevnum item (latestnum - 1) elevation
+    set elevation lput elevnum elevation
+  ]
+  
+  foreach adjlist [
+    id ->
+    ask patches with [exit = 1 and arealabel = id][
+      set elevation lput 0 elevation
+      set isvisit? 1
+      set alist lput self alist
+    ]
+  ]
+  
+  while [length alist > 0][  ;;8neighbor
+   let current-patche item 0 alist
+   set alist remove-item 0 alist
+   ask current-patche[
+      let elevnum item latestnum elevation 
+      ;;ask neighbors with [terrain-type = 0 and isvisit? = 0 and (arealabel = dis or arealabel = [arealabel] of myself)][
+      ask neighbors with [terrain-type = 0 and isvisit? = 0][
+        set elevation replace-item latestnum elevation (1 + elevnum)
+        set alist lput self alist
+        set isvisit? 1
+        set arealabel [arealabel] of myself
+      ]
+      ask neighbors with [terrain-type = 0 and isvisit? = 1][ ;;adjacentmatrix update
+        if arealabel != [arealabel] of myself
+        [
+          set adjacentmatrix replace-item arealabel adjacentmatrix replace-item [arealabel] of myself (item arealabel adjacentmatrix) 1
+        ]
+      ]
+    ]
+  ]
+  
+  set evac-patches patches with [exit = 1]
+  set deadevac-patches patches with [exit = 2]
+  
+  print evac-patches
+end

@@ -1,0 +1,144 @@
+to save_to_file
+  save-patches
+  ;;save-turtles
+  ;;save-globals ;;adjacent
+end
+
+to load_from_file
+  ca
+  reset-ticks
+  resize-world 0 1620 0 1080 ;;10km/1620=6.2m a patch is (6.2m)^2 3:2
+  ;;resize-world 0 (1620 * 1.5) 0 (1080 * 1.5) ;;10km/2430=4.1m
+  reset-timer
+  load-patches
+  ;;load-turtles
+  ;;load-globals
+  ;;distancelist 10
+  ;;set timeunit 0
+  ;;set evac-patches patches with [exit = 1]
+  ;;set fields patches with [terrain-type = 0]
+  ;;set guides turtles with [agent-type = 1]
+  set-patch-size 0.015
+  show timer
+  print "OK"
+end
+
+to save-patches
+  file-close
+  if file-exists? "file/patches-data.txt" [file-delete "file/patches-data.txt"]
+  file-open "file/patches-data.txt"
+  ask patches [
+   file-print pxcor
+   file-print pycor
+   file-print pcolor
+   file-print exit
+   file-print terrain-type
+  ]
+    file-close
+end
+
+to load-patches
+  file-close
+  file-open "file/patches-data.txt"
+  while [not file-at-end?][
+    ;;let data file-read-line
+    ;;let line (split  data " ")
+    let x read-from-string file-read-line
+    let y read-from-string file-read-line
+    let col read-from-string file-read-line
+    let exi read-from-string file-read-line
+    let typ read-from-string file-read-line
+    ask patch x y [
+      set pcolor col
+      set exit exi
+      set terrain-type typ
+      
+    ]
+  ]
+  file-close
+end
+
+to statistics [hour minute]
+  file-close
+  file-open "file/kobestatistics1-10a.txt"
+  let suc 100 * successnum / initialnum
+  let text (word (word (word (word hour " ") minute) " ") suc)
+  file-print text
+  file-close
+end
+
+
+to statistics2 [hour minute]
+  file-close
+  file-open "file/kobestatistics1-10b.txt"
+  let wariai 100 * startagentnum / initialnum
+  let text (word (word (word (word (word (word hour " ") minute) " ") startagentnum) " ") wariai)
+  file-print text
+  file-close
+end
+
+
+to statistics3
+  file-close
+  file-open "file/kobestatistics1-10c.txt"
+  let wariai 100 * successnum / initialnum
+  let f5 100 * finishtime5 / initialnum
+  let f10 100 * finishtime10 / initialnum
+  let f20 100 * finishtime20 / initialnum
+  let f30 100 * finishtime30 / initialnum
+  let f45 100 * finishtime45 / initialnum
+  let f60 100 * finishtime60 / initialnum
+  let fa 100 * finishtimeany / initialnum
+  let text (word (word (word (word (word (word( word( word (word (word (word (word (word (word wariai " ") f5) " ") f10) " ") f20) " ") f30) " ") f45) " ") f60) " ") fa)
+  file-print text
+  file-close
+end
+
+
+to statisticsl [hour minute cnt]
+  file-close
+  let name (word (word "koberesult/kobestatistics-a3-" cnt) ".txt")
+  ;;file-open "miyagiresult/miyagistatistics1-ta.txt"
+  file-open name
+  let suc 100 * successnum / initialnum
+  let text (word (word (word (word hour " ") minute) " ") suc)
+  file-print text
+  file-close
+end
+
+
+to statisticsl2 [hour minute cnt]
+  file-close
+  let name (word (word "koberesult/kobestatistics-b3-" cnt) ".txt")
+  ;;file-open "miyagiresult/miyagistatistics1-tb.txt"
+  file-open name
+  let wariai 100 * startagentnum / initialnum
+  let text (word (word (word (word (word (word hour " ") minute) " ") startagentnum) " ") wariai)
+  file-print text
+  file-close
+end
+
+to statistics3l [cnt]
+  file-close
+  let name (word (word "koberesult/kobegistatistics-c3-" cnt) ".txt")
+  ;;file-open "miyagiresult/miyagistatistics-c1-.txt"
+  file-open name
+  let wariai 100 * successnum / initialnum
+  let f5 100 * finishtime5 / initialnum
+  let f10 100 * finishtime10 / initialnum
+  let f20 100 * finishtime20 / initialnum
+  let f30 100 * finishtime30 / initialnum
+  let f45 100 * finishtime45 / initialnum
+  let f60 100 * finishtime60 / initialnum
+  let fa 100 * finishtimeany / initialnum
+  let text (word (word (word (word (word (word( word( word (word (word (word (word (word (word wariai " ") f5) " ") f10) " ") f20) " ") f30) " ") f45) " ") f60) " ") fa)
+  file-print text
+  file-close
+end
+
+
+
+
+
+
+
